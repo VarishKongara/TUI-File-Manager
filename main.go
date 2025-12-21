@@ -3,16 +3,19 @@ package main
 import (
 	"fmt"
 	"os"
+	"strings"
 
 	tea "github.com/charmbracelet/bubbletea"
+
+	"github.com/VarishKongara/TUI-File-Manager/filemanager"
 )
 
 type model struct {
-	str string
+	filemanager filemanager.Model
 }
 
 func (m model) Init() tea.Cmd {
-	return nil
+	return m.filemanager.Init()
 }
 
 func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
@@ -21,20 +24,26 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		switch msg.String() {
 		case "ctrl+c", "q":
 			return m, tea.Quit
-		default:
-			m.str += msg.String()
+
 		}
+	default:
+		var cmd tea.Cmd
+		m.filemanager, cmd = m.filemanager.Update(msg)
+		return m, cmd
 	}
 
 	return m, nil
 }
 
 func (m model) View() string {
-	return m.str
+	var str strings.Builder
+	str.WriteString("\n" + m.filemanager.View() + "\n")
+	return str.String()
 }
 
 func main() {
-	app := tea.NewProgram(model{str: "Hello, World!"})
+	filemanager := filemanager.Model{ID: 1, CWD: "."}
+	app := tea.NewProgram(model{filemanager: filemanager})
 	if _, err := app.Run(); err != nil {
 		fmt.Print("Error: ", err)
 		os.Exit(1)
