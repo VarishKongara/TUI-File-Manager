@@ -24,7 +24,10 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		switch msg.String() {
 		case "ctrl+c", "q":
 			return m, tea.Quit
-
+		default:
+			var cmd tea.Cmd
+			m.filemanager, cmd = m.filemanager.Update(msg)
+			return m, cmd
 		}
 	default:
 		var cmd tea.Cmd
@@ -32,7 +35,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, cmd
 	}
 
-	return m, nil
+	// return m, nil
 }
 
 func (m model) View() string {
@@ -42,7 +45,7 @@ func (m model) View() string {
 }
 
 func main() {
-	filemanager := filemanager.Model{ID: 1, CWD: "."}
+	filemanager := filemanager.New(1, ".")
 	app := tea.NewProgram(model{filemanager: filemanager})
 	if _, err := app.Run(); err != nil {
 		fmt.Print("Error: ", err)
