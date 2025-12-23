@@ -46,7 +46,7 @@ func (m model) View() string {
 
 func main() {
 	filemanager := filemanager.New(1, ".")
-	app := tea.NewProgram(model{filemanager: filemanager})
+	app := tea.NewProgram(model{filemanager: filemanager}, tea.WithAltScreen())
 	if _, err := app.Run(); err != nil {
 		fmt.Print("Error: ", err)
 		os.Exit(1)
