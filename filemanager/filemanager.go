@@ -3,6 +3,7 @@ package filemanager
 import (
 	"fmt"
 	"os"
+	"path/filepath"
 	"strings"
 
 	"github.com/charmbracelet/bubbles/key"
@@ -37,8 +38,9 @@ func New(id int, cwd string) Model {
 }
 
 type KeyMap struct {
-	Up   key.Binding
-	Down key.Binding
+	Up       key.Binding
+	Down     key.Binding
+	OpenFile key.Binding
 }
 
 var DefaultKeyMap = KeyMap{
@@ -49,6 +51,9 @@ var DefaultKeyMap = KeyMap{
 	Down: key.NewBinding(
 		key.WithKeys("j", "down"),
 		key.WithHelp("↓/j", "move down"),
+	),
+	OpenFile: key.NewBinding(key.WithKeys("l", "right"),
+		key.WithHelp("l", "open file"),
 	),
 }
 
@@ -100,6 +105,18 @@ func (m Model) Update(msg tea.Msg) (Model, tea.Cmd) {
 			if m.Selected > m.Bottom {
 				m.Top++
 				m.Bottom++
+			}
+		case key.Matches(msg, DefaultKeyMap.OpenFile):
+			if len(m.Files) == 0 {
+				break
+			}
+			if m.Files[m.Selected].IsDir() {
+
+				m.CWD = filepath.Join(m.CWD, m.Files[m.Selected].Name())
+				m.Selected = 0
+				m.Top = 0
+				m.Bottom = m.Size - 1
+				return m, m.readDir(m.CWD)
 			}
 		}
 	}
