@@ -45,7 +45,11 @@ func (m model) View() string {
 }
 
 func main() {
-	filemanager := filemanager.New(1, ".")
+	cwd, err := os.Getwd()
+	if err != nil {
+		panic(err)
+	}
+	filemanager := filemanager.New(1, cwd)
 	app := tea.NewProgram(model{filemanager: filemanager}, tea.WithAltScreen())
 	if _, err := app.Run(); err != nil {
 		fmt.Print("Error: ", err)

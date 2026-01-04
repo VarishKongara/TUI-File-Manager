@@ -38,9 +38,10 @@ func New(id int, cwd string) Model {
 }
 
 type KeyMap struct {
-	Up       key.Binding
-	Down     key.Binding
-	OpenFile key.Binding
+	Up     key.Binding
+	Down   key.Binding
+	Open   key.Binding
+	Parent key.Binding
 }
 
 var DefaultKeyMap = KeyMap{
@@ -52,8 +53,11 @@ var DefaultKeyMap = KeyMap{
 		key.WithKeys("j", "down"),
 		key.WithHelp("↓/j", "move down"),
 	),
-	OpenFile: key.NewBinding(key.WithKeys("l", "right"),
+	Open: key.NewBinding(key.WithKeys("l", "right"),
 		key.WithHelp("l", "open file"),
+	),
+	Parent: key.NewBinding(key.WithKeys("h", "left"),
+		key.WithHelp("l", "parent directory"),
 	),
 }
 
@@ -106,7 +110,7 @@ func (m Model) Update(msg tea.Msg) (Model, tea.Cmd) {
 				m.Top++
 				m.Bottom++
 			}
-		case key.Matches(msg, DefaultKeyMap.OpenFile):
+		case key.Matches(msg, DefaultKeyMap.Open):
 			if len(m.Files) == 0 {
 				break
 			}
@@ -118,6 +122,12 @@ func (m Model) Update(msg tea.Msg) (Model, tea.Cmd) {
 				m.Bottom = m.Size - 1
 				return m, m.readDir(m.CWD)
 			}
+		case key.Matches(msg, DefaultKeyMap.Parent):
+			m.CWD = filepath.Dir(m.CWD)
+			m.Selected = 0
+			m.Top = 0
+			m.Bottom = m.Size - 1
+			return m, m.readDir(m.CWD)
 		}
 	}
 
