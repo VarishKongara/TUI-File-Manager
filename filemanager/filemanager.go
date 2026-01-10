@@ -1,5 +1,6 @@
 package filemanager
 
+
 import (
 	"fmt"
 	"os"
@@ -136,15 +137,28 @@ func (m Model) Update(msg tea.Msg) (Model, tea.Cmd) {
 
 func (m Model) View() string {
 	var str strings.Builder
-	if len(m.Files) > 0 {
+	if len(m.Files) > 0 && m.Selected < len(m.Files) {
 		str.WriteString(m.Files[m.Selected].Name())
 		str.WriteRune('\n')
 		str.WriteRune('\n')
 	}
+
 	for i, file := range m.Files {
 		if i < m.Top || i > m.Bottom {
 			continue
 		}
+
+		info, err := os.Stat(filepath.Join(m.CWD, file.Name()))
+		if err != nil {
+			for range 10 {
+				str.WriteRune('?')
+			}
+			continue
+		}
+		if info != nil {
+			str.WriteString(info.Mode().String())
+		}
+		str.WriteRune(' ')
 
 		name := file.Name()
 		str.WriteString(name)
