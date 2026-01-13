@@ -24,7 +24,8 @@ type Model struct {
 	Margin int // number of lines above and below the file display
 
 	// Styles
-	PermStyles PermStyles
+	PermStyles    PermStyles
+	SelectedStyle SelectedStyle
 }
 
 // Styles for permissions string output
@@ -41,12 +42,29 @@ type PermStyles struct {
 	Special lipgloss.Style
 }
 
+// Inherit ligloss styles for PermStyles
+func (ps PermStyles) Inherit(base lipgloss.Style) PermStyles {
+	return PermStyles{
+		Dir:     ps.Dir.Inherit(base),
+		File:    ps.File.Inherit(base),
+		Symlink: ps.Symlink.Inherit(base),
+		Read:    ps.Read.Inherit(base),
+		Write:   ps.Write.Inherit(base),
+		Exec:    ps.Exec.Inherit(base),
+		None:    ps.None.Inherit(base),
+		Special: ps.Special.Inherit(base),
+	}
+}
+
 func DefaultPermStyles() PermStyles {
 	return PermStyles{
 		Dir: lipgloss.NewStyle().Foreground(lipgloss.Color("69")). // blue
 										Bold(true),
-		File: lipgloss.NewStyle().Foreground(lipgloss.Color("252")). // light gray
-										Bold(true),
+		File: lipgloss.NewStyle().Foreground(lipgloss.AdaptiveColor{
+			Dark:  "252", // light gray
+			Light: "240", // dim gray
+		},
+		),
 		Symlink: lipgloss.NewStyle().Foreground(lipgloss.Color("81")). // cyan
 										Bold(true),
 
@@ -58,6 +76,19 @@ func DefaultPermStyles() PermStyles {
 		Special: lipgloss.NewStyle().
 			Foreground(lipgloss.Color("197")). // red/magenta
 			Bold(true),
+	}
+}
+
+type SelectedStyle struct {
+	Background lipgloss.Style
+}
+
+func DefaultSelectedStyle() SelectedStyle {
+	return SelectedStyle{
+		Background: lipgloss.NewStyle().Background(lipgloss.CompleteAdaptiveColor{
+			Dark:  lipgloss.CompleteColor{ANSI256: "238", TrueColor: "#2e2e3e"}, // darker + blue tint
+			Light: lipgloss.CompleteColor{ANSI256: "254", TrueColor: "#dcdcdc"}, // grey
+		}),
 	}
 }
 
@@ -73,7 +104,8 @@ func New(id int, cwd string) Model {
 
 		Margin: 4,
 
-		PermStyles: DefaultPermStyles(),
+		PermStyles:    DefaultPermStyles(),
+		SelectedStyle: DefaultSelectedStyle(),
 	}
 }
 
@@ -187,30 +219,50 @@ func (m Model) View() string {
 			continue
 		}
 
-		info, err := os.Stat(filepath.Join(m.CWD, file.Name()))
+		name := file.Name()
+
+		// Get and style perms
+		var permStr string
+		info, err := os.Stat(filepath.Join(m.CWD, name))
 		if err != nil {
-			out.WriteString(strings.Repeat("?", 10))
+			permStr = strings.Repeat("?", 10)
 			continue
 		} else {
-			writePerms(&out, info.Mode().String(), m.PermStyles)
+			permStr = info.Mode().String()
 		}
-		out.WriteRune(' ')
 
-		name := file.Name()
-		if file.IsDir() {
-			name = m.PermStyles.Dir.Render(name)
+		// Style the output
+		var rowStr string
+		if i == m.Selected {
+			// Highlight selected
+			style := m.PermStyles.Inherit(m.SelectedStyle.Background)
+			permStr = writePerms(permStr, style)
+			if file.IsDir() {
+				name = style.Dir.Render(name)
+			} else {
+				name = style.File.Render(name)
+			}
+
+			rowStr = permStr + m.SelectedStyle.Background.Render(" ") + name
+		} else {
+			permStr = writePerms(permStr, m.PermStyles)
+			if file.IsDir() {
+				name = m.PermStyles.Dir.Render(name)
+			} else {
+				name = m.PermStyles.File.Render(name)
+			}
+			rowStr = permStr + " " + name
 		}
-		out.WriteString(name)
+
+		out.WriteString(rowStr)
 		out.WriteRune('\n')
 	}
 
 	return out.String()
 }
 
-func writePerms(out *strings.Builder, perms string, style PermStyles) {
-	if out == nil {
-		panic("String Builder is nil. In filemanager writePerms")
-	}
+func writePerms(perms string, style PermStyles) string {
+	var out strings.Builder
 
 	switch perms[0] {
 	case 'd':
@@ -237,4 +289,6 @@ func writePerms(out *strings.Builder, perms string, style PermStyles) {
 			out.WriteRune(char)
 		}
 	}
+
+	return out.String()
 }
