@@ -1,6 +1,5 @@
 package filemanager
 
-
 import (
 	"fmt"
 	"os"
@@ -9,6 +8,7 @@ import (
 
 	"github.com/charmbracelet/bubbles/key"
 	tea "github.com/charmbracelet/bubbletea"
+	"github.com/charmbracelet/lipgloss"
 )
 
 type Model struct {
@@ -22,6 +22,43 @@ type Model struct {
 	Selected int // selected item
 
 	Margin int // number of lines above and below the file display
+
+	// Styles
+	PermStyles PermStyles
+}
+
+// Styles for permissions string output
+type PermStyles struct {
+	Dir     lipgloss.Style
+	File    lipgloss.Style
+	Symlink lipgloss.Style
+
+	Read  lipgloss.Style
+	Write lipgloss.Style
+	Exec  lipgloss.Style
+	None  lipgloss.Style
+
+	Special lipgloss.Style
+}
+
+func DefaultPermStyles() PermStyles {
+	return PermStyles{
+		Dir: lipgloss.NewStyle().Foreground(lipgloss.Color("69")). // blue
+										Bold(true),
+		File: lipgloss.NewStyle().Foreground(lipgloss.Color("252")). // light gray
+										Bold(true),
+		Symlink: lipgloss.NewStyle().Foreground(lipgloss.Color("81")). // cyan
+										Bold(true),
+
+		Read:  lipgloss.NewStyle().Foreground(lipgloss.Color("214")), // yellow
+		Write: lipgloss.NewStyle().Foreground(lipgloss.Color("196")), // red
+		Exec:  lipgloss.NewStyle().Foreground(lipgloss.Color("76")),  // green
+		None:  lipgloss.NewStyle().Foreground(lipgloss.Color("240")), // dim gray
+
+		Special: lipgloss.NewStyle().
+			Foreground(lipgloss.Color("197")). // red/magenta
+			Bold(true),
+	}
 }
 
 func New(id int, cwd string) Model {
@@ -35,6 +72,8 @@ func New(id int, cwd string) Model {
 		Selected: 0,
 
 		Margin: 4,
+
+		PermStyles: DefaultPermStyles(),
 	}
 }
 
@@ -136,11 +175,11 @@ func (m Model) Update(msg tea.Msg) (Model, tea.Cmd) {
 }
 
 func (m Model) View() string {
-	var str strings.Builder
+	var out strings.Builder
 	if len(m.Files) > 0 && m.Selected < len(m.Files) {
-		str.WriteString(m.Files[m.Selected].Name())
-		str.WriteRune('\n')
-		str.WriteRune('\n')
+		out.WriteString(m.Files[m.Selected].Name())
+		out.WriteRune('\n')
+		out.WriteRune('\n')
 	}
 
 	for i, file := range m.Files {
@@ -150,20 +189,49 @@ func (m Model) View() string {
 
 		info, err := os.Stat(filepath.Join(m.CWD, file.Name()))
 		if err != nil {
-			for range 10 {
-				str.WriteRune('?')
-			}
+			out.WriteString(strings.Repeat("?", 10))
 			continue
+		} else {
+			writePerms(&out, info.Mode().String(), m.PermStyles)
 		}
-		if info != nil {
-			str.WriteString(info.Mode().String())
-		}
-		str.WriteRune(' ')
+		out.WriteRune(' ')
 
 		name := file.Name()
-		str.WriteString(name)
-		str.WriteRune('\n')
+		out.WriteString(name)
+		out.WriteRune('\n')
 	}
 
-	return str.String()
+	return out.String()
+}
+
+func writePerms(out *strings.Builder, perms string, style PermStyles) {
+	if out == nil {
+		panic("String Builder is nil. In filemanager writePerms")
+	}
+
+	switch perms[0] {
+	case 'd':
+		out.WriteString(style.Dir.Render("d"))
+	case 'l':
+		out.WriteString(style.Symlink.Render("l"))
+	default:
+		out.WriteString(style.File.Render(string(perms[0])))
+	}
+
+	for _, char := range perms[1:] {
+		switch char {
+		case 'r':
+			out.WriteString(style.Read.Render("r"))
+		case 'w':
+			out.WriteString(style.Write.Render("w"))
+		case 'x':
+			out.WriteString(style.Exec.Render("x"))
+		case 's', 'S', 't', 'T':
+			out.WriteString(style.Special.Render(string(char)))
+		case '-':
+			out.WriteString(style.None.Render("-"))
+		default:
+			out.WriteRune(char)
+		}
+	}
 }
