@@ -197,6 +197,9 @@ func (m Model) View() string {
 		out.WriteRune(' ')
 
 		name := file.Name()
+		if file.IsDir() {
+			name = m.PermStyles.Dir.Render(name)
+		}
 		out.WriteString(name)
 		out.WriteRune('\n')
 	}
