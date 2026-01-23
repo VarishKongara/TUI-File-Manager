@@ -158,6 +158,8 @@ func (m Model) Update(msg tea.Msg) (Model, tea.Cmd) {
 			m.viewport = viewport.New(msg.Width, height)
 			m.viewport.YPosition = m.Margin / 2
 			m.vport_ready = true
+
+			m.viewport.SetContent(m.renderFiles())
 		} else {
 			m.viewport.Width = msg.Width
 			m.viewport.Height = height
@@ -167,42 +169,39 @@ func (m Model) Update(msg tea.Msg) (Model, tea.Cmd) {
 			break
 		}
 		m.Files = msg.dirents
+		m.viewport.SetContent(m.renderFiles())
 	case tea.KeyMsg:
 		switch {
 		case key.Matches(msg, DefaultKeyMap.Up):
 			if m.Selected > 0 {
 				m.Selected--
 			}
-			if m.Selected < m.Top {
-				m.Top--
-				m.Bottom--
-			}
+
+			m.viewport.SetYOffset(max(0, m.Selected-m.viewport.Height/2))
+
+			m.viewport.SetContent(m.renderFiles())
 		case key.Matches(msg, DefaultKeyMap.Down):
 			m.Selected++
 			if m.Selected >= len(m.Files) {
 				m.Selected = len(m.Files) - 1
 			}
-			if m.Selected > m.Bottom {
-				m.Top++
-				m.Bottom++
-			}
+
+			m.viewport.SetYOffset(max(0, m.Selected-m.viewport.Height/2))
+
+			m.viewport.SetContent(m.renderFiles())
 		case key.Matches(msg, DefaultKeyMap.Open):
 			if len(m.Files) == 0 {
 				break
 			}
 			if m.Files[m.Selected].IsDir() {
-
 				m.CWD = filepath.Join(m.CWD, m.Files[m.Selected].Name())
 				m.Selected = 0
-				m.Top = 0
-				m.Bottom = m.Size - 1
+				m.viewport.GotoTop()
 				return m, m.readDir(m.CWD)
 			}
 		case key.Matches(msg, DefaultKeyMap.Parent):
 			m.CWD = filepath.Dir(m.CWD)
-			m.Selected = 0
-			m.Top = 0
-			m.Bottom = m.Size - 1
+			m.viewport.GotoTop()
 			return m, m.readDir(m.CWD)
 		}
 	}
@@ -212,19 +211,9 @@ func (m Model) Update(msg tea.Msg) (Model, tea.Cmd) {
 	return m, cmd
 }
 
-func (m Model) View() string {
+func (m Model) renderFiles() string {
 	var out strings.Builder
-	if len(m.Files) > 0 && m.Selected < len(m.Files) {
-		out.WriteString(m.Files[m.Selected].Name())
-		out.WriteRune('\n')
-		out.WriteRune('\n')
-	}
-
 	for i, file := range m.Files {
-		if i < m.Top || i > m.Bottom {
-			continue
-		}
-
 		name := file.Name()
 
 		// Get and style perms
@@ -238,7 +227,6 @@ func (m Model) View() string {
 		}
 
 		// Style the output
-		var rowStr string
 		if i == m.Selected {
 			// Highlight selected
 			style := m.PermStyles.Inherit(m.SelectedStyle.Background)
@@ -249,7 +237,7 @@ func (m Model) View() string {
 				name = style.File.Render(name)
 			}
 
-			rowStr = permStr + m.SelectedStyle.Background.Render(" ") + name
+			out.WriteString(permStr + m.SelectedStyle.Background.Render(" ") + name)
 		} else {
 			permStr = writePerms(permStr, m.PermStyles)
 			if file.IsDir() {
@@ -257,10 +245,9 @@ func (m Model) View() string {
 			} else {
 				name = m.PermStyles.File.Render(name)
 			}
-			rowStr = permStr + " " + name
+			out.WriteString(permStr + " " + name)
 		}
 
-		out.WriteString(rowStr)
 		out.WriteRune('\n')
 	}
 
@@ -297,4 +284,16 @@ func writePerms(perms string, style PermStyles) string {
 	}
 
 	return out.String()
+}
+
+func (m Model) View() string {
+	if !m.vport_ready {
+		return "Loading..."
+	}
+
+	return lipgloss.JoinVertical(
+		lipgloss.Left,
+		m.CWD,
+		m.viewport.View(),
+	)
 }
