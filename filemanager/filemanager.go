@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"github.com/charmbracelet/bubbles/key"
+	"github.com/charmbracelet/bubbles/viewport"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 )
@@ -16,12 +17,11 @@ type Model struct {
 	CWD   string //current working directory
 	Files []os.DirEntry
 
-	Size     int
-	Top      int // top item displayed
-	Bottom   int // bottom item displayed
 	Selected int // selected item
+	Margin   int // number of lines above and below the file display
 
-	Margin int // number of lines above and below the file display
+	viewport    viewport.Model
+	vport_ready bool
 
 	// Styles
 	PermStyles    PermStyles
@@ -97,12 +97,8 @@ func New(id int, cwd string) Model {
 		ID:  id,
 		CWD: cwd,
 
-		Size:     0,
-		Top:      0,
-		Bottom:   0,
 		Selected: 0,
-
-		Margin: 4,
+		Margin:   4,
 
 		PermStyles:    DefaultPermStyles(),
 		SelectedStyle: DefaultSelectedStyle(),
@@ -156,8 +152,16 @@ func (m Model) Init() tea.Cmd {
 func (m Model) Update(msg tea.Msg) (Model, tea.Cmd) {
 	switch msg := msg.(type) {
 	case tea.WindowSizeMsg:
-		m.Size = msg.Height - m.Margin
-		m.Bottom = m.Size - 1
+		height := msg.Height - m.Margin
+
+		if !m.vport_ready {
+			m.viewport = viewport.New(msg.Width, height)
+			m.viewport.YPosition = m.Margin / 2
+			m.vport_ready = true
+		} else {
+			m.viewport.Width = msg.Width
+			m.viewport.Height = height
+		}
 	case direntMsg:
 		if msg.id != m.ID {
 			break
@@ -203,7 +207,9 @@ func (m Model) Update(msg tea.Msg) (Model, tea.Cmd) {
 		}
 	}
 
-	return m, nil
+	var cmd tea.Cmd
+	m.viewport, cmd = m.viewport.Update(msg)
+	return m, cmd
 }
 
 func (m Model) View() string {
