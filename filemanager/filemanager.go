@@ -3,6 +3,7 @@ package filemanager
 import (
 	"fmt"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
 
@@ -106,10 +107,11 @@ func New(id int, cwd string) Model {
 }
 
 type KeyMap struct {
-	Up     key.Binding
-	Down   key.Binding
-	Open   key.Binding
-	Parent key.Binding
+	Up       key.Binding
+	Down     key.Binding
+	EnterDir key.Binding
+	Parent   key.Binding
+	Open     key.Binding
 }
 
 var DefaultKeyMap = KeyMap{
@@ -121,11 +123,14 @@ var DefaultKeyMap = KeyMap{
 		key.WithKeys("j", "down"),
 		key.WithHelp("↓/j", "move down"),
 	),
-	Open: key.NewBinding(key.WithKeys("l", "right"),
-		key.WithHelp("l", "open file"),
+	EnterDir: key.NewBinding(key.WithKeys("l", "right"),
+		key.WithHelp("l", "EnterDir file"),
 	),
 	Parent: key.NewBinding(key.WithKeys("h", "left"),
 		key.WithHelp("l", "parent directory"),
+	),
+	Open: key.NewBinding(key.WithKeys("enter", "ctrl+o"),
+		key.WithHelp("enter/ctrl+o", "open selection"),
 	),
 }
 
@@ -189,7 +194,7 @@ func (m Model) Update(msg tea.Msg) (Model, tea.Cmd) {
 			m.viewport.SetYOffset(max(0, m.Selected-m.viewport.Height/2))
 
 			m.viewport.SetContent(m.renderFiles())
-		case key.Matches(msg, DefaultKeyMap.Open):
+		case key.Matches(msg, DefaultKeyMap.EnterDir):
 			if len(m.Files) == 0 {
 				break
 			}
@@ -203,7 +208,22 @@ func (m Model) Update(msg tea.Msg) (Model, tea.Cmd) {
 			m.CWD = filepath.Dir(m.CWD)
 			m.viewport.GotoTop()
 			return m, m.readDir(m.CWD)
+		case key.Matches(msg, DefaultKeyMap.Open):
+			if len(m.Files) == 0 {
+				break
+			}
+			if !m.Files[m.Selected].IsDir() {
+				filePath := filepath.Join(m.CWD, m.Files[m.Selected].Name())
+				cmd := exec.Command("xdg-open", filePath)
+				return m, tea.ExecProcess(cmd, func(err error) tea.Msg {
+					if err != nil {
+						fmt.Println("Error opening file:", err)
+					}
+					return nil // or return a custom error message type
+				})
+			}
 		}
+
 	}
 
 	var cmd tea.Cmd
