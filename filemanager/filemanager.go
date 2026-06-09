@@ -27,6 +27,11 @@ type Model struct {
 	// Styles
 	PermStyles    PermStyles
 	SelectedStyle SelectedStyle
+
+	// History
+	Back         []DirectoryState
+	Forward      []DirectoryState
+	NavDirection NavDirection
 }
 
 // Styles for permissions string output
@@ -134,6 +139,20 @@ var DefaultKeyMap = KeyMap{
 	),
 }
 
+type DirectoryState struct {
+	Path   string
+	Index  int // position in list of directory entries
+	Offset int // topmost visible item in viewport
+}
+
+type NavDirection int
+
+const (
+	None NavDirection = iota
+	Back
+	Forward
+)
+
 type direntMsg struct {
 	id      int
 	dirents []os.DirEntry
@@ -174,7 +193,36 @@ func (m Model) Update(msg tea.Msg) (Model, tea.Cmd) {
 			break
 		}
 		m.Files = msg.dirents
+
+		var restoredState DirectoryState
+		restored := false
+		switch m.NavDirection {
+		case Back:
+			if len(m.Back) > 0 && m.Back[len(m.Back)-1].Path == m.CWD {
+				restoredState = m.Back[len(m.Back)-1]
+				m.Back = m.Back[:len(m.Back)-1]
+				m.Selected = restoredState.Index
+				restored = true
+			}
+		case Forward:
+			if len(m.Forward) > 0 && m.Forward[len(m.Forward)-1].Path == m.CWD {
+				restoredState = m.Forward[len(m.Forward)-1]
+				m.Forward = m.Forward[:len(m.Forward)-1]
+				m.Selected = restoredState.Index
+				restored = true
+			}
+		}
+		if !restored {
+			m.Selected = 0
+		}
+		m.NavDirection = None
+
 		m.viewport.SetContent(m.renderFiles())
+		if restored {
+			m.viewport.SetYOffset(restoredState.Offset)
+		} else {
+			m.viewport.SetYOffset(0)
+		}
 	case tea.KeyMsg:
 		switch {
 		case key.Matches(msg, DefaultKeyMap.Up):
@@ -182,31 +230,36 @@ func (m Model) Update(msg tea.Msg) (Model, tea.Cmd) {
 				m.Selected--
 			}
 
-			m.viewport.SetYOffset(max(0, m.Selected-m.viewport.Height/2))
-
 			m.viewport.SetContent(m.renderFiles())
+			m.viewport.SetYOffset(max(0, m.Selected-m.viewport.Height/2))
 		case key.Matches(msg, DefaultKeyMap.Down):
 			m.Selected++
 			if m.Selected >= len(m.Files) {
 				m.Selected = len(m.Files) - 1
 			}
 
-			m.viewport.SetYOffset(max(0, m.Selected-m.viewport.Height/2))
-
 			m.viewport.SetContent(m.renderFiles())
+			m.viewport.SetYOffset(max(0, m.Selected-m.viewport.Height/2))
 		case key.Matches(msg, DefaultKeyMap.EnterDir):
 			if len(m.Files) == 0 {
 				break
 			}
 			if m.Files[m.Selected].IsDir() {
-				m.CWD = filepath.Join(m.CWD, m.Files[m.Selected].Name())
-				m.Selected = 0
-				m.viewport.GotoTop()
+				newPath := filepath.Join(m.CWD, m.Files[m.Selected].Name())
+				// update the stack for history
+				m.Back = append(m.Back, DirectoryState{Path: m.CWD, Index: m.Selected, Offset: m.viewport.YOffset})
+				if len(m.Forward) == 0 || m.Forward[len(m.Forward)-1].Path != newPath {
+					m.Forward = nil
+				}
+				m.NavDirection = Forward
+				m.CWD = newPath
 				return m, m.readDir(m.CWD)
 			}
 		case key.Matches(msg, DefaultKeyMap.Parent):
+			// update the stack for history
+			m.Forward = append(m.Forward, DirectoryState{Path: m.CWD, Index: m.Selected, Offset: m.viewport.YOffset})
+			m.NavDirection = Back
 			m.CWD = filepath.Dir(m.CWD)
-			m.viewport.GotoTop()
 			return m, m.readDir(m.CWD)
 		case key.Matches(msg, DefaultKeyMap.Open):
 			if len(m.Files) == 0 {
