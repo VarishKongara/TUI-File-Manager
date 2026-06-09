@@ -5,6 +5,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"runtime"
 	"strings"
 
 	"github.com/charmbracelet/bubbles/key"
@@ -267,8 +268,12 @@ func (m Model) Update(msg tea.Msg) (Model, tea.Cmd) {
 			}
 			if !m.Files[m.Selected].IsDir() {
 				filePath := filepath.Join(m.CWD, m.Files[m.Selected].Name())
-				cmd := exec.Command("gio", "open", filePath)
-
+				var cmd *exec.Cmd
+				if runtime.GOOS == "linux" {
+					cmd = exec.Command("gio", "open", filePath)
+				} else if runtime.GOOS == "windows" {
+					cmd = exec.Command("cmd", "/C", "start", "", filePath)
+				}
 				// return m, tea.ExecProcess(cmd, func(err error) tea.Msg {
 				// 	if err != nil {
 				// 		fmt.Println("Error opening file:", err)
@@ -282,7 +287,6 @@ func (m Model) Update(msg tea.Msg) (Model, tea.Cmd) {
 				}
 			}
 		}
-
 	}
 
 	var cmd tea.Cmd
