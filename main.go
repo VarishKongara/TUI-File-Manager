@@ -29,6 +29,11 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.filemanager, cmd = m.filemanager.Update(msg)
 			return m, cmd
 		}
+	case tea.WindowSizeMsg:
+		var cmd tea.Cmd
+        msg.Height = msg.Height - 1;
+		m.filemanager, cmd = m.filemanager.Update(msg)
+		return m, cmd
 	default:
 		var cmd tea.Cmd
 		m.filemanager, cmd = m.filemanager.Update(msg)
