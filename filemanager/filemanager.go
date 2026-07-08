@@ -22,6 +22,8 @@ type Model struct {
 	Selected int // selected item
 	Margin   int // number of lines above and below the file display
 
+    cwdHeight int // how many lines the displaying the current directory takes
+
 	viewport    viewport.Model
 	vport_ready bool
 
@@ -105,7 +107,9 @@ func New(id int, cwd string) Model {
 		CWD: cwd,
 
 		Selected: 0,
-		Margin:   4,
+		Margin:   0,
+
+        cwdHeight: 1,
 
 		PermStyles:    DefaultPermStyles(),
 		SelectedStyle: DefaultSelectedStyle(),
@@ -177,11 +181,11 @@ func (m Model) Init() tea.Cmd {
 func (m Model) Update(msg tea.Msg) (Model, tea.Cmd) {
 	switch msg := msg.(type) {
 	case tea.WindowSizeMsg:
-		height := msg.Height - m.Margin
+		height := msg.Height - m.Margin - m.cwdHeight
 
 		if !m.vport_ready {
 			m.viewport = viewport.New(msg.Width, height)
-			m.viewport.YPosition = m.Margin / 2
+			m.viewport.YPosition = m.Margin / 2 + m.cwdHeight
 			m.vport_ready = true
 
 			m.viewport.SetContent(m.renderFiles())
