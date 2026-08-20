@@ -31,6 +31,9 @@ type Model struct {
 	PermStyles    PermStyles
 	SelectedStyle SelectedStyle
 
+	// Keymap
+	KeyMap KeyMap
+
 	// History
 	Back         []DirectoryState
 	Forward      []DirectoryState
@@ -101,7 +104,15 @@ func DefaultSelectedStyle() SelectedStyle {
 	}
 }
 
-func New(id int, cwd string) Model {
+type KeyMap struct {
+	Up       key.Binding
+	Down     key.Binding
+	EnterDir key.Binding
+	Parent   key.Binding
+	Open     key.Binding
+}
+
+func New(id int, cwd string, keyMap KeyMap) Model {
 	return Model{
 		ID:  id,
 		CWD: cwd,
@@ -113,35 +124,9 @@ func New(id int, cwd string) Model {
 
 		PermStyles:    DefaultPermStyles(),
 		SelectedStyle: DefaultSelectedStyle(),
+
+		KeyMap: keyMap,
 	}
-}
-
-type KeyMap struct {
-	Up       key.Binding
-	Down     key.Binding
-	EnterDir key.Binding
-	Parent   key.Binding
-	Open     key.Binding
-}
-
-var DefaultKeyMap = KeyMap{
-	Up: key.NewBinding(
-		key.WithKeys("k", "up"),
-		key.WithHelp("↑/k", "move up"),
-	),
-	Down: key.NewBinding(
-		key.WithKeys("j", "down"),
-		key.WithHelp("↓/j", "move down"),
-	),
-	EnterDir: key.NewBinding(key.WithKeys("l", "right"),
-		key.WithHelp("l", "EnterDir file"),
-	),
-	Parent: key.NewBinding(key.WithKeys("h", "left"),
-		key.WithHelp("l", "parent directory"),
-	),
-	Open: key.NewBinding(key.WithKeys("enter", "ctrl+o"),
-		key.WithHelp("enter/ctrl+o", "open selection"),
-	),
 }
 
 type DirectoryState struct {
@@ -230,14 +215,14 @@ func (m Model) Update(msg tea.Msg) (Model, tea.Cmd) {
 		}
 	case tea.KeyMsg:
 		switch {
-		case key.Matches(msg, DefaultKeyMap.Up):
+		case key.Matches(msg, m.KeyMap.Up):
 			if m.Selected > 0 {
 				m.Selected--
 			}
 
 			m.viewport.SetContent(m.renderFiles())
 			m.viewport.SetYOffset(max(0, m.Selected-m.viewport.Height/2))
-		case key.Matches(msg, DefaultKeyMap.Down):
+		case key.Matches(msg, m.KeyMap.Down):
 			m.Selected++
 			if m.Selected >= len(m.Files) {
 				m.Selected = len(m.Files) - 1
@@ -245,7 +230,7 @@ func (m Model) Update(msg tea.Msg) (Model, tea.Cmd) {
 
 			m.viewport.SetContent(m.renderFiles())
 			m.viewport.SetYOffset(max(0, m.Selected-m.viewport.Height/2))
-		case key.Matches(msg, DefaultKeyMap.EnterDir):
+		case key.Matches(msg, m.KeyMap.EnterDir):
 			if len(m.Files) == 0 {
 				break
 			}
@@ -260,13 +245,13 @@ func (m Model) Update(msg tea.Msg) (Model, tea.Cmd) {
 				m.CWD = newPath
 				return m, m.readDir(m.CWD)
 			}
-		case key.Matches(msg, DefaultKeyMap.Parent):
+		case key.Matches(msg, m.KeyMap.Parent):
 			// update the stack for history
 			m.Forward = append(m.Forward, DirectoryState{Path: m.CWD, Index: m.Selected, Offset: m.viewport.YOffset})
 			m.NavDirection = Back
 			m.CWD = filepath.Dir(m.CWD)
 			return m, m.readDir(m.CWD)
-		case key.Matches(msg, DefaultKeyMap.Open):
+		case key.Matches(msg, m.KeyMap.Open):
 			if len(m.Files) == 0 {
 				break
 			}

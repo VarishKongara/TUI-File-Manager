@@ -5,11 +5,39 @@ import (
 	"os"
 	"strings"
 
+	"github.com/charmbracelet/bubbles/key"
 	tea "github.com/charmbracelet/bubbletea"
 
 	"github.com/VarishKongara/TUI-File-Manager/cmdline"
 	"github.com/VarishKongara/TUI-File-Manager/filemanager"
 )
+
+var DefaultFileManagerKeyMap = filemanager.KeyMap{
+	Up: key.NewBinding(
+		key.WithKeys("k", "up"),
+		key.WithHelp("↑/k", "move up"),
+	),
+	Down: key.NewBinding(
+		key.WithKeys("j", "down"),
+		key.WithHelp("↓/j", "move down"),
+	),
+	EnterDir: key.NewBinding(key.WithKeys("l", "right"),
+		key.WithHelp("l", "EnterDir file"),
+	),
+	Parent: key.NewBinding(key.WithKeys("h", "left"),
+		key.WithHelp("l", "parent directory"),
+	),
+	Open: key.NewBinding(key.WithKeys("enter", "ctrl+o"),
+		key.WithHelp("enter/ctrl+o", "open selection"),
+	),
+}
+
+var DefaultCmdLineKeyMap = cmdline.KeyMap{
+	Escape: key.NewBinding(
+		key.WithKeys("esc"),
+		key.WithHelp("esc", "escape"),
+	),
+}
 
 type model struct {
 	filemanager filemanager.Model
@@ -67,8 +95,8 @@ func main() {
 	if err != nil {
 		panic(err)
 	}
-	filemanager := filemanager.New(FileManager, cwd)
-	cmdline := cmdline.New(CmdLine)
+	filemanager := filemanager.New(FileManager, cwd, DefaultFileManagerKeyMap)
+	cmdline := cmdline.New(CmdLine, DefaultCmdLineKeyMap)
 	app := tea.NewProgram(model{filemanager: filemanager, cmdline: cmdline, focus: FileManager}, tea.WithAltScreen())
 	if _, err := app.Run(); err != nil {
 		fmt.Print("Error: ", err)
