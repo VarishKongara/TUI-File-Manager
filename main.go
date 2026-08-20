@@ -14,11 +14,21 @@ import (
 type model struct {
 	filemanager filemanager.Model
 	cmdline cmdline.Model
+	focus int
 }
 
 func (m model) Init() tea.Cmd {
-	return m.filemanager.Init()
+	return tea.Batch(
+		m.filemanager.Init(),
+		m.cmdline.Init(),
+	)
 }
+
+// IDs for each component
+const (
+	FileManager = iota + 1
+	CmdLine
+)
 
 func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
@@ -33,7 +43,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 	case tea.WindowSizeMsg:
 		var cmd tea.Cmd
-        msg.Height = msg.Height - 1;
+        msg.Height = msg.Height - m.cmdline.Height;
 		m.filemanager, cmd = m.filemanager.Update(msg)
 		return m, cmd
 	default:
@@ -48,6 +58,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 func (m model) View() string {
 	var str strings.Builder
 	str.WriteString("\n" + m.filemanager.View() + "\n")
+	str.WriteString(m.cmdline.View())
 	return str.String()
 }
 
@@ -56,8 +67,9 @@ func main() {
 	if err != nil {
 		panic(err)
 	}
-	filemanager := filemanager.New(1, cwd)
-	app := tea.NewProgram(model{filemanager: filemanager}, tea.WithAltScreen())
+	filemanager := filemanager.New(FileManager, cwd)
+	cmdline := cmdline.New(CmdLine)
+	app := tea.NewProgram(model{filemanager: filemanager, cmdline: cmdline, focus: FileManager}, tea.WithAltScreen())
 	if _, err := app.Run(); err != nil {
 		fmt.Print("Error: ", err)
 		os.Exit(1)

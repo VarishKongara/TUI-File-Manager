@@ -107,7 +107,7 @@ func New(id int, cwd string) Model {
 		CWD: cwd,
 
 		Selected: 0,
-		Margin:   0,
+		Margin:   1,
 
         cwdHeight: 1,
 
