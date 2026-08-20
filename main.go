@@ -7,11 +7,13 @@ import (
 
 	tea "github.com/charmbracelet/bubbletea"
 
+	"github.com/VarishKongara/TUI-File-Manager/cmdline"
 	"github.com/VarishKongara/TUI-File-Manager/filemanager"
 )
 
 type model struct {
 	filemanager filemanager.Model
+	cmdline cmdline.Model
 }
 
 func (m model) Init() tea.Cmd {
