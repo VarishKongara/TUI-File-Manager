@@ -13,6 +13,10 @@ type Model struct {
 	KeyMap KeyMap
 }
 
+type KeyMap struct {
+	Escape       key.Binding
+}
+
 func New(id int, keyMap KeyMap) Model {
 	return Model{
 		ID:  id,
@@ -20,12 +24,6 @@ func New(id int, keyMap KeyMap) Model {
         KeyMap: keyMap,
 	}
 }
-
-type KeyMap struct {
-	Escape       key.Binding
-}
-
-
 
 func (m Model) Init() tea.Cmd {
 	return nil

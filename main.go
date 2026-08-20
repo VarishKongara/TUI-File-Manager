@@ -12,6 +12,29 @@ import (
 	"github.com/VarishKongara/TUI-File-Manager/filemanager"
 )
 
+type model struct {
+	filemanager filemanager.Model
+	cmdline cmdline.Model
+	focus int
+}
+
+type KeyMap struct {
+	SwitchFocus key.Binding
+	Quit key.Binding
+}
+
+var DefaultKeybinds = KeyMap {
+	SwitchFocus: key.NewBinding(
+		key.WithKeys("shift+tab"),
+		key.WithHelp("shift+tab", "next component"),
+	),
+	Quit: key.NewBinding(
+		key.WithKeys("ctrl+c", "q"),
+		key.WithHelp("ctrl+c/q", "exit program"),
+	),
+
+}
+
 var DefaultFileManagerKeyMap = filemanager.KeyMap{
 	Up: key.NewBinding(
 		key.WithKeys("k", "up"),
@@ -21,10 +44,12 @@ var DefaultFileManagerKeyMap = filemanager.KeyMap{
 		key.WithKeys("j", "down"),
 		key.WithHelp("↓/j", "move down"),
 	),
-	EnterDir: key.NewBinding(key.WithKeys("l", "right"),
+	EnterDir: key.NewBinding(
+		key.WithKeys("l", "right"),
 		key.WithHelp("l", "EnterDir file"),
 	),
-	Parent: key.NewBinding(key.WithKeys("h", "left"),
+	Parent: key.NewBinding(
+		key.WithKeys("h", "left"),
 		key.WithHelp("l", "parent directory"),
 	),
 	Open: key.NewBinding(key.WithKeys("enter", "ctrl+o"),
@@ -39,12 +64,6 @@ var DefaultCmdLineKeyMap = cmdline.KeyMap{
 	),
 }
 
-type model struct {
-	filemanager filemanager.Model
-	cmdline cmdline.Model
-	focus int
-}
-
 func (m model) Init() tea.Cmd {
 	return tea.Batch(
 		m.filemanager.Init(),
@@ -54,19 +73,29 @@ func (m model) Init() tea.Cmd {
 
 // IDs for each component
 const (
-	FileManager = iota + 1
+	FileManager = iota
 	CmdLine
+	numComponents
 )
 
 func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
 	case tea.KeyMsg:
-		switch msg.String() {
-		case "ctrl+c", "q":
+		switch {
+		case key.Matches(msg, DefaultKeybinds.Quit):
 			return m, tea.Quit
+		case key.Matches(msg, DefaultKeybinds.SwitchFocus):
+			m.focus = (m.focus+1) % numComponents
+			fallthrough
 		default:
 			var cmd tea.Cmd
-			m.filemanager, cmd = m.filemanager.Update(msg)
+			switch m.focus{
+			case FileManager:
+				m.filemanager, cmd = m.filemanager.Update(msg)
+
+			case CmdLine:
+				m.cmdline, cmd = m.cmdline.Update(msg)
+			}
 			return m, cmd
 		}
 	case tea.WindowSizeMsg:
